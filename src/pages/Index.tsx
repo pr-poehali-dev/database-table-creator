@@ -9,8 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import BarcodeScanner from '@/components/BarcodeScanner';
+import CodeDisplay from '@/components/CodeDisplay';
 
-type ColumnType = 'text' | 'number' | 'email' | 'date';
+type ColumnType = 'text' | 'number' | 'email' | 'date' | 'qrcode' | 'barcode';
 
 interface Column {
   id: string;
@@ -46,6 +48,8 @@ const Index = () => {
   const [newColumnName, setNewColumnName] = useState('');
   const [newColumnType, setNewColumnType] = useState<ColumnType>('text');
   const [newRowData, setNewRowData] = useState<Record<string, string>>({});
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [scannerColumnId, setScannerColumnId] = useState<string>('');
 
   const filteredRows = rows.filter(row => {
     const searchLower = searchTerm.toLowerCase();
@@ -128,12 +132,23 @@ const Index = () => {
     toast.success('JSON файл загружен');
   };
 
+  const handleScanCode = (columnId: string) => {
+    setScannerColumnId(columnId);
+    setIsScannerOpen(true);
+  };
+
+  const handleCodeScanned = (data: string) => {
+    setNewRowData({ ...newRowData, [scannerColumnId]: data });
+  };
+
   const getTypeIcon = (type: ColumnType) => {
     switch (type) {
       case 'text': return 'Type';
       case 'number': return 'Hash';
       case 'email': return 'Mail';
       case 'date': return 'Calendar';
+      case 'qrcode': return 'QrCode';
+      case 'barcode': return 'Barcode';
       default: return 'Circle';
     }
   };
@@ -222,13 +237,34 @@ const Index = () => {
                     {columns.map(col => (
                       <div key={col.id} className="space-y-2">
                         <Label htmlFor={col.id}>{col.name}</Label>
-                        <Input
-                          id={col.id}
-                          type={col.type === 'number' ? 'number' : col.type === 'date' ? 'date' : 'text'}
-                          placeholder={`Введите ${col.name.toLowerCase()}`}
-                          value={newRowData[col.id] || ''}
-                          onChange={(e) => setNewRowData({ ...newRowData, [col.id]: e.target.value })}
-                        />
+                        {col.type === 'qrcode' || col.type === 'barcode' ? (
+                          <div className="flex gap-2">
+                            <Input
+                              id={col.id}
+                              type="text"
+                              placeholder={`Введите ${col.name.toLowerCase()}`}
+                              value={newRowData[col.id] || ''}
+                              onChange={(e) => setNewRowData({ ...newRowData, [col.id]: e.target.value })}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => handleScanCode(col.id)}
+                              className="gap-2 shrink-0"
+                            >
+                              <Icon name="Camera" size={18} />
+                              Сканировать
+                            </Button>
+                          </div>
+                        ) : (
+                          <Input
+                            id={col.id}
+                            type={col.type === 'number' ? 'number' : col.type === 'date' ? 'date' : 'text'}
+                            placeholder={`Введите ${col.name.toLowerCase()}`}
+                            value={newRowData[col.id] || ''}
+                            onChange={(e) => setNewRowData({ ...newRowData, [col.id]: e.target.value })}
+                          />
+                        )}
                       </div>
                     ))}
                     <Button onClick={handleAddRow} className="w-full">Добавить</Button>
@@ -275,7 +311,13 @@ const Index = () => {
                         filteredRows.map(row => (
                           <TableRow key={row.id} className="hover:bg-muted/50 transition-colors">
                             {columns.map(col => (
-                              <TableCell key={col.id}>{row[col.id]}</TableCell>
+                              <TableCell key={col.id}>
+                                {col.type === 'qrcode' || col.type === 'barcode' ? (
+                                  <CodeDisplay value={String(row[col.id] || '')} type={col.type} />
+                                ) : (
+                                  row[col.id]
+                                )}
+                              </TableCell>
                             ))}
                             <TableCell>
                               <Button
@@ -344,6 +386,8 @@ const Index = () => {
                             <SelectItem value="number">Число</SelectItem>
                             <SelectItem value="email">Email</SelectItem>
                             <SelectItem value="date">Дата</SelectItem>
+                            <SelectItem value="qrcode">QR-код</SelectItem>
+                            <SelectItem value="barcode">Штрих-код</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -467,6 +511,12 @@ const Index = () => {
           </div>
         )}
       </main>
+      
+      <BarcodeScanner
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScan={handleCodeScanned}
+      />
     </div>
   );
 };
